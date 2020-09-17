@@ -214,6 +214,7 @@ static loff_t device_lseek(struct file* file, loff_t offset, int orig)
 static ssize_t device_read(struct file* file, char* str,size_t size,loff_t* offset)
 {
     len = size;
+    ((uint8_t*)buf)[0] = 0;
 
     // iic read to buf
     spin_lock_irq(&wire_lock);

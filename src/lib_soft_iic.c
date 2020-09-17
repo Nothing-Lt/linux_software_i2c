@@ -8,18 +8,18 @@ extern unsigned scl_pin;
 extern unsigned sda_pin;
 
 #define SCL_HIGH() gpio_set_value(scl_pin,1)
-#define SCL_LOW() gpio_set_value(scl_pin,0)
+#define SCL_LOW()  gpio_set_value(scl_pin,0)
 
-#define SDA_OUT() gpio_direction_output(sda_pin,1)
-#define SDA_INPUT() gpio_direction_input(sda_pin)
+#define SDA_OUT()    gpio_direction_output(sda_pin,1)
+#define SDA_INPUT()  gpio_direction_input(sda_pin)
 #define SDA_SET(val) gpio_set_value(sda_pin,val)
-#define SDA_GET() gpio_get_value(sda_pin)
+#define SDA_GET()    gpio_get_value(sda_pin)
 
 static int _i2c_start(void)
 {
     SCL_LOW();
     SDA_SET(1);
-    udelay(20);
+    //udelay(20);
 
     SCL_HIGH();
     SDA_SET(0);
@@ -48,7 +48,9 @@ static int _i2c_byte_write(uint8_t data)
         SCL_LOW();
         udelay(10);
     }
-    SDA_SET(0);
+
+    // For wating for the ack signal
+    SDA_SET(1);
     SCL_HIGH();
     udelay(10);
     SCL_LOW();
@@ -70,7 +72,12 @@ static uint8_t _i2c_byte_read(void)
         SCL_LOW();
         udelay(10);
     }
+
+    // For generating the ack signal
+    SDA_SET(0);
     SCL_HIGH();
+    udelay(10);
+    SCL_LOW();
     udelay(10);
 
     return data;
@@ -90,8 +97,10 @@ int soft_i2c_read(uint8_t dev_addr, uint8_t reg_addr, void* buf, size_t len)
     // read
     SDA_OUT();    
     _i2c_start();
-    _i2c_byte_write(dev_addr | 0x1); // 
+    _i2c_byte_write(dev_addr & (~(0x1))); // For sending the device address, so use write bit here.
     _i2c_byte_write(reg_addr);
+    _i2c_start();             // Generate restart signal
+    _i2c_byte_write(dev_addr | 0x1); // For reading the data from slave.
 
     SDA_INPUT();
     for(i = 0 ; i < len ; i++){
