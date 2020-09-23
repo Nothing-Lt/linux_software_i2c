@@ -218,7 +218,7 @@ static ssize_t device_read(struct file* file, char* str,size_t size,loff_t* offs
 
     // iic read to buf
     spin_lock_irq(&wire_lock);
-    if(soft_i2c_read(dev_addr,reg_addr,buf,len)){
+    if(soft_i2c_read(dev_addr << 1,reg_addr,buf,len)){
         return 0;
     }
     spin_unlock_irq(&wire_lock);
@@ -241,7 +241,7 @@ static ssize_t device_write(struct file* file, const char* str, size_t size, lof
 
     // iic write
     spin_lock_irq(&wire_lock);
-    if(soft_i2c_write(dev_addr,reg_addr,buf,len)){
+    if(soft_i2c_write(dev_addr << 1,reg_addr,buf,len)){
         return 0;
     }
     spin_unlock_irq(&wire_lock);
