@@ -6,6 +6,8 @@
 
 extern unsigned scl_pin;
 extern unsigned sda_pin;
+extern unsigned long t_delay; 
+extern void (*_i2c_delay)(unsigned long secs);
 
 #define SCL_HIGH() gpio_set_value(scl_pin,1)
 #define SCL_LOW()  gpio_set_value(scl_pin,0)
@@ -23,8 +25,8 @@ static int _i2c_start(void)
 
     SCL_HIGH();
     SDA_SET(0);
-    udelay(10);
-
+    //udelay(10);
+    _i2c_delay(t_delay);
     return 0;
 }
 
@@ -44,17 +46,17 @@ static int _i2c_byte_write(uint8_t data)
     for(i = 7 ; i >= 0 ; i--){
         SDA_SET((data >> i) & 1);
         SCL_HIGH();
-        udelay(10);
+        _i2c_delay(t_delay);
         SCL_LOW();
-        udelay(10);
+        _i2c_delay(t_delay);
     }
 
     // For wating for the ack signal
     SDA_SET(1);
     SCL_HIGH();
-    udelay(10);
+    _i2c_delay(t_delay);
     SCL_LOW();
-    udelay(10);
+    _i2c_delay(t_delay);
 
     return 0;
 }
@@ -68,17 +70,17 @@ static uint8_t _i2c_byte_read(void)
     for(i = 7 ; i >= 0 ; i--){
         SCL_HIGH();
         data = (data << 1) | SDA_GET();
-        udelay(10);
+        _i2c_delay(t_delay);
         SCL_LOW();
-        udelay(10);
+        _i2c_delay(t_delay);
     }
 
     // For generating the ack signal
     SDA_SET(0);
     SCL_HIGH();
-    udelay(10);
+    _i2c_delay(t_delay);
     SCL_LOW();
-    udelay(10);
+    _i2c_delay(t_delay);
 
     return data;
 }

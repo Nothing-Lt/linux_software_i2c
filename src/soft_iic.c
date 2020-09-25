@@ -35,6 +35,9 @@ void* buf = NULL; // buffer
 
 unsigned scl_pin = DFLT_SCL;
 unsigned sda_pin = DFLT_SDA;
+unsigned long t_delay = 5; // Default clock rate is 100khz
+
+void (*_i2c_delay)(unsigned long secs) = ndelay;
 
 // Determine a lock for the spinlock,
 // It is needed for prenventing the preemption when 
@@ -170,7 +173,7 @@ long device_ioctl (struct file *file, unsigned int cmd, unsigned long arg)
     switch(cmd)
     {
         case IOCTL_CMD_SCL_PIN_SET:
-            if(scl_pin != arg){
+            if((scl_pin != arg) && (0 != arg)){
                 gpio_free(scl_pin);
                 scl_pin = arg;
                 if(-ENOSYS == gpio_request(scl_pin, NULL)){
@@ -180,7 +183,7 @@ long device_ioctl (struct file *file, unsigned int cmd, unsigned long arg)
             }
         break;
         case IOCTL_CMD_SDA_PIN_SET:            
-            if(sda_pin != arg){
+            if((sda_pin != arg) && (0 != arg)){
                 gpio_free(sda_pin);
                 sda_pin = arg;
                 if(-ENOSYS == gpio_request(sda_pin, NULL)){
@@ -188,6 +191,31 @@ long device_ioctl (struct file *file, unsigned int cmd, unsigned long arg)
                 }
                 gpio_direction_output(sda_pin,1);
             }
+        break;
+        case IOCTL_CMD_CLK_FRQ_SET:
+            switch(arg)
+            {
+                case I2C_CLK_FRQ_100KHZ:
+                    t_delay = 5000;
+                    _i2c_delay = ndelay;
+                break;
+                case I2C_CLK_FRQ_400KHZ:
+                    t_delay = 1250; // Later to change the delay function. use ndelay 2500
+                    _i2c_delay = ndelay;
+                break;
+                case I2C_CLK_FRQ_1MHZ:
+                    t_delay = 500;
+                    _i2c_delay = ndelay;
+                break;
+                case I2C_CLK_FRQ_3D2MHZ:
+                    t_delay = 166;
+                    _i2c_delay = ndelay;
+                break;
+                default:
+                    return EPERM;
+                break;
+            }
+
         break;
         default:
             return EPERM;
