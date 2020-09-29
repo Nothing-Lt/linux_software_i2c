@@ -149,9 +149,6 @@ static int device_open(struct inode* inode, struct file* file)
         return -ENOSYS;
     }
 
-    gpio_direction_output(scl_pin,0);
-    gpio_direction_output(sda_pin,1);
-
     return 0;
 }
 
