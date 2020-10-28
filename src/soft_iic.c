@@ -20,13 +20,9 @@ MODULE_LICENSE("GPL");
 #define DEVICE_NAME "soft_iic"
 #define CLASS_NAME "softiiccla"
 
-#define DFLT_SCL 66
-#define DFLT_SDA 69
-
 static int major_num;
 static struct class* cl;
 static struct device* dev;
-static struct task_struct* ts = NULL;
 
 uint8_t dev_addr; // device iic address
 uint8_t reg_addr; // device iic register
@@ -59,36 +55,23 @@ static struct file_operations file_ops = {
     .release = device_release
 };
 
-static int hello_thread(void* data)
-{
-    while(!kthread_should_stop()){
-
-        gpio_set_value(66,1);
-        msleep(50);
-        gpio_set_value(66,0);
-        msleep(50);
-    }
-
-    return 0;
-}
-
 static int __init device_init(void)
 {
-    printk(KERN_ALERT "softiic: staring...\n");
+    printk(KERN_INFO "[sw_iic] softiic: staring...\n");
 
     // Find a place in kernel char-device-array for keeping and allocate major-id for this driver.
     // major-id is the index for this driver in char-device-array.
     // After this step, we can find this device from /proc/devices
     major_num = register_chrdev(0,DEVICE_NAME,&file_ops);
     if(0 > major_num){
-    printk(KERN_ALERT "failed alloc\n");
+    printk(KERN_ALERT "[sw_iic] failed alloc\n");
         goto finish_l;
     }
 
     // Create a class under /sys/class, so that later we can call device_create() to create a node under /dev/
     cl = class_create(THIS_MODULE,CLASS_NAME);
     if(IS_ERR(cl)){
-        printk(KERN_ALERT "failed create class\n");
+        printk(KERN_ALERT "[sw_iic] failed create class\n");
         goto unregister_chrdev_region_l;
     } 
     
@@ -96,7 +79,7 @@ static int __init device_init(void)
     // so we will have /dev/hello
     dev = device_create(cl,NULL,MKDEV(major_num,0),NULL,DEVICE_NAME);
     if(IS_ERR(dev)){
-        printk(KERN_ALERT "failed device create\n");
+        printk(KERN_ALERT "[sw_iic] failed device create\n");
         goto class_destroy_l;
     }
 
@@ -104,15 +87,9 @@ static int __init device_init(void)
         goto device_destroy_l;
     }
 
-/*
-    ts = kthread_run(hello_thread,NULL,"softiic_thread");
-    if(IS_ERR(ts)){
-        goto free_buf_l;
-    }
-*/
     spin_lock_init(&wire_lock);
 
-    printk(KERN_ALERT "staring done.\n");
+    printk(KERN_INFO "[sw_iic] staring done.\n");
     return 0;
 
 device_destroy_l:
@@ -127,22 +104,18 @@ finish_l:
 
 static void __exit device_exit(void)
 {
-    printk(KERN_ALERT "hello: stopping...\n");
-/*
-    kthread_stop(ts);
-    ts = NULL;
-*/
+    printk(KERN_INFO "hello: stopping...\n");
 
     device_destroy(cl, MKDEV(major_num,0));
     class_unregister(cl);
     class_destroy(cl);
     unregister_chrdev(major_num, DEVICE_NAME);
-    printk(KERN_ALERT "hello: stopping done.\n");
+    printk(KERN_INFO "hello: stopping done.\n");
 }
 
 static int device_open(struct inode* inode, struct file* file)
 {
-    printk(KERN_ALERT "device openning\n");
+    printk(KERN_INFO "device openning\n");
 
     if((-ENOSYS == i2c_scl_request(scl_pin)) || \
        (-ENOSYS == i2c_sda_request(sda_pin))){
@@ -154,7 +127,7 @@ static int device_open(struct inode* inode, struct file* file)
 
 static int device_release(struct inode* node, struct file* file)
 {
-    printk(KERN_ALERT "device released\n");
+    printk(KERN_INFO "device released\n");
 
     i2c_scl_free();
     i2c_sda_free();
@@ -162,7 +135,7 @@ static int device_release(struct inode* node, struct file* file)
     return 0;
 }
 
-long device_ioctl (struct file *file, unsigned int cmd, unsigned long arg)
+long device_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
     switch(cmd)
     {
@@ -189,7 +162,7 @@ static loff_t device_lseek(struct file* file, loff_t offset, int orig)
     dev_addr = (uint8_t)((offset >> 16) & 0xFF);
     reg_addr = (uint8_t)(offset & 0xFF);
 
-    printk(KERN_ALERT "%d %llx %d %d\n",sizeof(loff_t), offset, dev_addr, reg_addr);
+    printk(KERN_INFO "[sw_iic] lseek %d %llx %d %d\n",sizeof(loff_t), offset, dev_addr, reg_addr);
 
     return 0;
 }
@@ -198,19 +171,23 @@ static loff_t device_lseek(struct file* file, loff_t offset, int orig)
  * size => len
  */
 static ssize_t device_read(struct file* file, char* str,size_t size,loff_t* offset)
-{
+{ 
     len = size;
     ((uint8_t*)buf)[0] = 0;
-
-    // iic read to buf
-    spin_lock_irq(&wire_lock);
+    
     if(soft_i2c_read(dev_addr << 1,reg_addr,buf,len)){
-        return 0;
+        printk(KERN_INFO "[sw_iic] no ack!!\n");
+        return -1;
     }
-    spin_unlock_irq(&wire_lock);
-
+    int i;
+    printk(KERN_INFO "[sw_iic] read : ");
+    for (i = 0; i < len; i++)
+    {
+        printk(KERN_INFO "%d,",((char*)buf)[i]);
+    }
+    printk(KERN_INFO "\n");
     copy_to_user(str,buf,len);
-
+    
     return 0;
 }
 
@@ -223,20 +200,23 @@ static ssize_t device_write(struct file* file, const char* str, size_t size, lof
 
     copy_from_user(buf,str,size);
 
-    printk(KERN_ALERT "Going to write %d %d %s\n",dev_addr, reg_addr, buf);
-
-    // iic write
-    spin_lock_irq(&wire_lock);
-    if(soft_i2c_write(dev_addr << 1,reg_addr,buf,len)){
-        return 0;
+    printk(KERN_INFO "[sw_iic] Going to write addr %d reg %d\n",dev_addr, reg_addr);
+    int i;
+    for (i = 0  ; i < len ; i++)
+    {
+        printk(KERN_INFO "%d,",((char*)buf)[i]);
     }
-    spin_unlock_irq(&wire_lock);
-    
-    printk(KERN_ALERT "write down\n");
+    printk(KERN_INFO "\n");
 
+    if(soft_i2c_write(dev_addr << 1,reg_addr,buf,len)){
+        printk(KERN_INFO "no ack from slave\n");
+        return -1;
+    }
+    
+    printk(KERN_INFO "write done\n");
+    
     return 0;
 }
-
 
 module_init(device_init);
 module_exit(device_exit);

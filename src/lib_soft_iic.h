@@ -8,16 +8,19 @@
 #define DFLT_SDA 69
 
 #define I2C_CLK_FRQ_100KHZ    0x1
-#define I2C_CLK_FRQ_400KHZ    0x2
-#define I2C_CLK_FRQ_1MHZ      0x4
-#define I2C_CLK_FRQ_3D2MHZ    0x8
+#define I2C_CLK_FRQ_200KHZ    0x2
+#define I2C_CLK_FRQ_400KHZ    0x4
+#define I2C_CLK_FRQ_1MHZ      0x8
+#define I2C_CLK_FRQ_3D2MHZ    0x10
 
 int i2c_scl_request(unsigned long scl_pin);
 
 int i2c_sda_request(unsigned long sda_pin);
 
-#define i2c_scl_free() gpio_free(scl_pin)
-#define i2c_sda_free() gpio_free(sda_pin)
+#define i2c_scl_free() gpio_direction_input(scl_pin); \
+                       gpio_free(scl_pin)
+#define i2c_sda_free() gpio_direction_input(sda_pin); \
+                       gpio_free(sda_pin)
 
 int i2c_clock_rate_set(unsigned long clk_rate);
 
