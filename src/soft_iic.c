@@ -20,6 +20,8 @@ MODULE_LICENSE("GPL");
 #define DEVICE_NAME "soft_iic"
 #define CLASS_NAME "softiiccla"
 
+//#define DEBUG_MOD
+
 static int major_num;
 static struct class* cl;
 static struct device* dev;
@@ -122,6 +124,8 @@ static int device_open(struct inode* inode, struct file* file)
         return -ENOSYS;
     }
 
+    i2c_reset();
+
     return 0;
 }
 
@@ -140,10 +144,12 @@ long device_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
     switch(cmd)
     {
         case IOCTL_CMD_SCL_PIN_SET:
-            return i2c_scl_pin_set(arg);
+            i2c_scl_pin_set(arg);
+            i2c_reset();
         break;
         case IOCTL_CMD_SDA_PIN_SET:
-            return i2c_sda_pin_set(arg);
+            i2c_sda_pin_set(arg);
+            i2c_reset();
         break;
         case IOCTL_CMD_CLK_FRQ_SET:
             return i2c_clock_rate_set(arg);
@@ -172,6 +178,7 @@ static loff_t device_lseek(struct file* file, loff_t offset, int orig)
  */
 static ssize_t device_read(struct file* file, char* str,size_t size,loff_t* offset)
 { 
+    int i;
     len = size;
     ((uint8_t*)buf)[0] = 0;
     
@@ -179,13 +186,14 @@ static ssize_t device_read(struct file* file, char* str,size_t size,loff_t* offs
         printk(KERN_INFO "[sw_iic] no ack!!\n");
         return -1;
     }
-    int i;
+#ifdef DEBUG_MOD
     printk(KERN_INFO "[sw_iic] read : ");
     for (i = 0; i < len; i++)
     {
         printk(KERN_INFO "%d,",((char*)buf)[i]);
     }
     printk(KERN_INFO "\n");
+#endif
     copy_to_user(str,buf,len);
     
     return 0;
@@ -195,19 +203,21 @@ static ssize_t device_read(struct file* file, char* str,size_t size,loff_t* offs
  *
  */
 static ssize_t device_write(struct file* file, const char* str, size_t size, loff_t* offset)
-{
+{    
+    int i;
     len = size;
 
     copy_from_user(buf,str,size);
 
     printk(KERN_INFO "[sw_iic] Going to write addr %d reg %d\n",dev_addr, reg_addr);
-    int i;
+
+#ifdef DEBUG_MOD
     for (i = 0  ; i < len ; i++)
     {
         printk(KERN_INFO "%d,",((char*)buf)[i]);
     }
     printk(KERN_INFO "\n");
-
+#endif
     if(soft_i2c_write(dev_addr << 1,reg_addr,buf,len)){
         printk(KERN_INFO "no ack from slave\n");
         return -1;

@@ -28,6 +28,8 @@ int i2c_scl_pin_set(unsigned long new_scl_pin);
 
 int i2c_sda_pin_set(unsigned long new_sda_pin);
 
+void i2c_reset(void);
+
 // reading operation
 int soft_i2c_read(uint8_t dev_addr, uint8_t reg_addr, void* buf, size_t len);
 

@@ -12,7 +12,7 @@ unsigned sda_pin = DFLT_SDA;
 unsigned long t_delay = 1e9/100000/4; 
 void (*_i2c_delay)(unsigned long secs) = ndelay;
 
-#define SCL_HIGH() gpio_direction_input(scl_pin,1); \
+#define SCL_HIGH() gpio_direction_input(scl_pin); \
                    _i2c_delay(t_delay)
 #define SCL_LOW()  gpio_direction_output(scl_pin,0); \
                    _i2c_delay(t_delay)
@@ -58,7 +58,7 @@ static int _i2c_start(void)
     SDA_SET(1);
 
     if(!SDA_GET()){
-        _i2c_release_wait(sda_pin);
+        i2c_reset();
     }
     _i2c_release_wait(scl_pin);
 
@@ -74,6 +74,9 @@ static int _i2c_stop(void)
     _i2c_release_wait(scl_pin);
     
     SDA_SET(1);
+    if(!SDA_GET()){
+        i2c_reset();
+    }
 
     return 0;
 }
@@ -215,6 +218,27 @@ int i2c_sda_pin_set(unsigned long new_sda_pin)
     }
 
     return -1;
+}
+
+void i2c_reset(void)
+{
+    int i;
+
+    SDA_SET(1);
+
+    do{
+        for(i = 0 ; i < 10 ; i++){
+            SCL_LOW();
+            SCL_HIGH();
+        }
+
+        msleep(10);
+    }while(!SDA_GET());
+
+    SCL_LOW();
+    SDA_SET(0);
+
+    _i2c_stop();
 }
 
 int soft_i2c_read(uint8_t dev_addr, uint8_t reg_addr, void* buf, size_t len)
