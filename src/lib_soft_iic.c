@@ -254,10 +254,12 @@ int soft_i2c_read(uint8_t dev_addr, uint8_t reg_addr, void* buf, size_t len)
 
     _i2c_start();
     if(_i2c_byte_write(dev_addr & (~0x1))){
+        i2c_reset();
         printk(KERN_INFO "addr %x\n",dev_addr);
         return 1;
     } 
     if(_i2c_byte_write(reg_addr)){
+        i2c_reset();
         printk(KERN_INFO "reg %x\n",reg_addr);
         return 1;
     }
@@ -265,6 +267,7 @@ int soft_i2c_read(uint8_t dev_addr, uint8_t reg_addr, void* buf, size_t len)
     _i2c_start();             // Generate restart signal
 
     if(_i2c_byte_write(dev_addr | 0x1)){
+        i2c_reset();
         printk(KERN_INFO "read dev_addr | 1\n");
         return -1;
     } 
@@ -292,16 +295,19 @@ int soft_i2c_write(const uint8_t dev_addr, const uint8_t reg_addr, const void* b
     
     _i2c_start();
     if(_i2c_byte_write(dev_addr & (~0x1))){
+        i2c_reset();
         printk(KERN_INFO "addr %x\n",dev_addr);
         return 1;
     } 
     if(_i2c_byte_write(reg_addr)){
+        i2c_reset();
         printk(KERN_INFO "reg %x\n",reg_addr);
         return 1;
     }
 
     for(i = 0 ; i < len ; i++){
         if(_i2c_byte_write(ptr[i])){
+            i2c_reset();
             printk(KERN_INFO "no ack from slave %x\n",ptr[i]);
         }
     }
