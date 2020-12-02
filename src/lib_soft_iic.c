@@ -5,11 +5,13 @@
 #include <asm/errno.h>
 #include <linux/spinlock.h>
 
+#define _I2C_100KHZ 1e9/400000/4
+
 extern spinlock_t wire_lock;
 
 unsigned scl_pin = DFLT_SCL;
 unsigned sda_pin = DFLT_SDA;
-unsigned long t_delay = 1e9/100000/4; 
+unsigned long t_delay = _I2C_100KHZ;
 void (*_i2c_delay)(unsigned long secs) = ndelay;
 
 #define SCL_HIGH() gpio_direction_input(scl_pin); \
@@ -169,24 +171,20 @@ int i2c_clock_rate_set(unsigned long clk_rate)
     switch(clk_rate)
     {
         case I2C_CLK_FRQ_100KHZ:
-            t_delay = 1e9/100000/4;
+            t_delay = _I2C_100KHZ;
             _i2c_delay = ndelay;
         break;
         case I2C_CLK_FRQ_200KHZ:
-            t_delay = 1e9/200000/4;
-            _i2c_delay = ndelay;
+            t_delay = 500;
+            _i2c_delay = _lib_i2c_delay;
         break;
         case I2C_CLK_FRQ_400KHZ:
-            t_delay = 1e9/400000/4; // Later to change the delay function. use ndelay 2500
-            _i2c_delay = ndelay;
+            t_delay = 250; // Later to change the delay function. use ndelay 2500
+            _i2c_delay = _lib_i2c_delay;
         break;
         case I2C_CLK_FRQ_1MHZ:
-            t_delay = 500;
-            _i2c_delay = _lib_i2c_delay; // Linux only give the microsecond level of delay, this frequency beyond this, so I defined this function.
         break;
         case I2C_CLK_FRQ_3D2MHZ:
-            t_delay = 166;
-            _i2c_delay = _lib_i2c_delay;
         break;
         default:
             return -EPERM;
