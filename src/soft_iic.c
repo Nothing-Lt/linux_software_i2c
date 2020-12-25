@@ -8,6 +8,7 @@
 #include <linux/cdev.h>
 #include <linux/types.h>
 #include <linux/gpio.h>
+#include <linux/sched.h>
 #include <linux/kthread.h>
 #include <linux/spinlock.h>
 #include <linux/delay.h>
@@ -20,12 +21,19 @@ MODULE_LICENSE("GPL");
 #define DEVICE_NAME "soft_iic"
 #define CLASS_NAME "softiiccla"
 
+struct mod_ctrl_s
+{
+    unsigned occupied_flag;
+    pid_t    pid;
+};
+
 //#define DEBUG_MOD
 
 static int major_num;
 static struct class* cl;
 static struct device* dev;
 
+struct mod_ctrl_s mod_ctrl;
 uint8_t dev_addr; // device iic address
 uint8_t reg_addr; // device iic register
 size_t len;     // size of the data will be transfered
@@ -33,6 +41,9 @@ void* buf = NULL; // buffer
 
 extern unsigned scl_pin;
 extern unsigned sda_pin;
+
+module_param(scl_pin, uint, S_IRUGO);
+module_param(sda_pin, uint, S_IRUGO);
 
 // Determine a lock for the spinlock,
 // It is needed for prenventing the preemption when 
@@ -89,6 +100,9 @@ static int __init device_init(void)
         goto device_destroy_l;
     }
 
+    mod_ctrl.occupied_flag = 0;
+    mod_ctrl.pid = 0;
+
     spin_lock_init(&wire_lock);
 
     printk(KERN_INFO "[sw_iic] staring done.\n");
@@ -117,7 +131,7 @@ static void __exit device_exit(void)
 
 static int device_open(struct inode* inode, struct file* file)
 {
-    printk(KERN_INFO "device openning\n");
+    printk(KERN_INFO " %d device openning, scl %u sda %u\n", current->pid, scl_pin, sda_pin);
 
     if((-ENOSYS == i2c_scl_request(scl_pin)) || \
        (-ENOSYS == i2c_sda_request(sda_pin))){
@@ -131,10 +145,14 @@ static int device_open(struct inode* inode, struct file* file)
 
 static int device_release(struct inode* node, struct file* file)
 {
-    printk(KERN_INFO "device released\n");
+    printk(KERN_INFO "%d device released\n", current->pid);
 
     i2c_scl_free();
     i2c_sda_free();
+
+    if(mod_ctrl.occupied_flag && (mod_ctrl.pid == current->pid)){
+        mod_ctrl.occupied_flag = 0;
+    }
 
     return 0;
 }
@@ -143,14 +161,40 @@ long device_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
     switch(cmd)
     {
-        case IOCTL_CMD_SCL_PIN_SET:
-            i2c_scl_pin_set(arg);
-            i2c_reset();
+        case IOCTL_CMD_TAKE:
+            if(mod_ctrl.occupied_flag && (mod_ctrl.pid != current->pid)){
+                return -ENOSYS;
+            }
+            else if(mod_ctrl.occupied_flag){
+                break;
+            }
+            else{
+                mod_ctrl.occupied_flag = 1;
+                mod_ctrl.pid = current->pid;
+            }
         break;
-        case IOCTL_CMD_SDA_PIN_SET:
-            i2c_sda_pin_set(arg);
-            i2c_reset();
+
+        case IOCTL_CMD_RELEASE:
+            if(!mod_ctrl.occupied_flag){
+                return -ENOSYS;
+            }
+            else if(mod_ctrl.pid != current->pid){
+                return -ENOSYS;
+            }
+            else{
+                mod_ctrl.occupied_flag = 0;
+            }
         break;
+
+        // case IOCTL_CMD_SCL_PIN_SET:
+        //     i2c_scl_pin_set(arg);
+        //     i2c_reset();
+        // break;
+        // case IOCTL_CMD_SDA_PIN_SET:
+        //     i2c_sda_pin_set(arg);
+        //     i2c_reset();
+        // break;
+
         case IOCTL_CMD_CLK_FRQ_SET:
             return i2c_clock_rate_set(arg);
         break;
@@ -164,11 +208,14 @@ long device_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 static loff_t device_lseek(struct file* file, loff_t offset, int orig)
 {
+    if(mod_ctrl.occupied_flag && (mod_ctrl.pid != current->pid)){
+        return -1;
+    }
 
     dev_addr = (uint8_t)((offset >> 16) & 0xFF);
     reg_addr = (uint8_t)(offset & 0xFF);
 
-    printk(KERN_INFO "[sw_iic] lseek %d %llx %d %d\n",sizeof(loff_t), offset, dev_addr, reg_addr);
+    printk(KERN_INFO "[sw_iic] %d lseek %d %llx %d %d\n",current->pid, sizeof(loff_t), offset, dev_addr, reg_addr);
 
     return 0;
 }
@@ -178,15 +225,20 @@ static loff_t device_lseek(struct file* file, loff_t offset, int orig)
  */
 static ssize_t device_read(struct file* file, char* str,size_t size,loff_t* offset)
 { 
-    int i;
     len = size;
     ((uint8_t*)buf)[0] = 0;
     
+    if(mod_ctrl.occupied_flag && (mod_ctrl.pid != current->pid)){
+        return -1;
+    }
+
     if(soft_i2c_read(dev_addr << 1,reg_addr,buf,len)){
         printk(KERN_INFO "[sw_iic] no ack!!\n");
         return -1;
     }
+
 #ifdef DEBUG_MOD
+    int i;
     printk(KERN_INFO "[sw_iic] read : ");
     for (i = 0; i < len; i++)
     {
@@ -194,6 +246,7 @@ static ssize_t device_read(struct file* file, char* str,size_t size,loff_t* offs
     }
     printk(KERN_INFO "\n");
 #endif
+
     copy_to_user(str,buf,len);
     
     return 0;
@@ -204,20 +257,25 @@ static ssize_t device_read(struct file* file, char* str,size_t size,loff_t* offs
  */
 static ssize_t device_write(struct file* file, const char* str, size_t size, loff_t* offset)
 {    
-    int i;
     len = size;
-
+    
+    if((!mod_ctrl.occupied_flag) || (mod_ctrl.pid != current->pid)){
+        return -1;
+    }
+    
     copy_from_user(buf,str,size);
 
-    printk(KERN_INFO "[sw_iic] Going to write addr %d reg %d\n",dev_addr, reg_addr);
+    printk(KERN_INFO "[sw_iic] %d Going to write addr %d reg %d\n",current->pid,dev_addr, reg_addr);
 
 #ifdef DEBUG_MOD
+    int i;
     for (i = 0  ; i < len ; i++)
     {
         printk(KERN_INFO "%d,",((char*)buf)[i]);
     }
     printk(KERN_INFO "\n");
 #endif
+
     if(soft_i2c_write(dev_addr << 1,reg_addr,buf,len)){
         printk(KERN_INFO "no ack from slave\n");
         return -1;
