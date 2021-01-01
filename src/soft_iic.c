@@ -100,14 +100,29 @@ static int __init device_init(void)
         goto device_destroy_l;
     }
 
+    if(0 != i2c_scl_request(scl_pin)){
+        goto buf_destroy_l;
+    }
+
+    if(0 != i2c_sda_request(sda_pin)){
+        goto scl_free_l;
+    }
+
+    i2c_reset();
+
     mod_ctrl.occupied_flag = 0;
     mod_ctrl.pid = 0;
 
     spin_lock_init(&wire_lock);
 
     printk(KERN_INFO "[sw_iic] staring done.\n");
+    
     return 0;
 
+scl_free_l:
+    i2c_scl_free();
+buf_destroy_l:
+    vfree(buf);
 device_destroy_l:
     device_destroy(cl, MKDEV(major_num,0));
 class_destroy_l:
@@ -120,25 +135,21 @@ finish_l:
 
 static void __exit device_exit(void)
 {
-    printk(KERN_INFO "hello: stopping...\n");
+    printk(KERN_INFO "[sw_iic]: stopping...\n");
 
+    i2c_scl_free();
+    i2c_sda_free();
+    vfree(buf);
     device_destroy(cl, MKDEV(major_num,0));
     class_unregister(cl);
     class_destroy(cl);
     unregister_chrdev(major_num, DEVICE_NAME);
-    printk(KERN_INFO "hello: stopping done.\n");
+    printk(KERN_INFO "[sw_iic]: stopping done.\n");
 }
 
 static int device_open(struct inode* inode, struct file* file)
 {
     printk(KERN_INFO " %d device openning, scl %u sda %u\n", current->pid, scl_pin, sda_pin);
-
-    if((-ENOSYS == i2c_scl_request(scl_pin)) || \
-       (-ENOSYS == i2c_sda_request(sda_pin))){
-        return -ENOSYS;
-    }
-
-    i2c_reset();
 
     return 0;
 }
@@ -146,9 +157,6 @@ static int device_open(struct inode* inode, struct file* file)
 static int device_release(struct inode* node, struct file* file)
 {
     printk(KERN_INFO "%d device released\n", current->pid);
-
-    i2c_scl_free();
-    i2c_sda_free();
 
     if(mod_ctrl.occupied_flag && (mod_ctrl.pid == current->pid)){
         mod_ctrl.occupied_flag = 0;
@@ -194,7 +202,7 @@ long device_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
         //     i2c_sda_pin_set(arg);
         //     i2c_reset();
         // break;
-
+        
         case IOCTL_CMD_CLK_FRQ_SET:
             return i2c_clock_rate_set(arg);
         break;
