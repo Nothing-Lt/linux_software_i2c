@@ -9,19 +9,20 @@
 
 extern spinlock_t wire_lock;
 
-unsigned scl_pin = DFLT_SCL;
-unsigned sda_pin = DFLT_SDA;
 unsigned long t_delay = _I2C_100KHZ;
 void (*_i2c_delay)(unsigned long secs) = ndelay;
 
-#define SCL_HIGH() gpio_direction_input(scl_pin); \
+static unsigned _scl_pin = DFLT_SCL;
+static unsigned _sda_pin = DFLT_SDA;
+
+#define SCL_HIGH() gpio_direction_input(_scl_pin); \
                    _i2c_delay(t_delay)
-#define SCL_LOW()  gpio_direction_output(scl_pin,0); \
+#define SCL_LOW()  gpio_direction_output(_scl_pin,0); \
                    _i2c_delay(t_delay)
 
-#define SDA_SET(val) 1 == (val) ? gpio_direction_input(sda_pin) : gpio_direction_output(sda_pin,0); \
+#define SDA_SET(val) 1 == (val) ? gpio_direction_input(_sda_pin) : gpio_direction_output(_sda_pin,0); \
                      _i2c_delay(t_delay)
-#define SDA_GET()    gpio_get_value(sda_pin)
+#define SDA_GET()    gpio_get_value(_sda_pin)
 
 /**
  * For the implementation of this delay,
@@ -62,7 +63,7 @@ static int _i2c_start(void)
     if(!SDA_GET()){
         i2c_reset();
     }
-    _i2c_release_wait(scl_pin);
+    _i2c_release_wait(_scl_pin);
 
     SDA_SET(0);
 
@@ -73,7 +74,7 @@ static int _i2c_start(void)
 
 static int _i2c_stop(void)
 {
-    _i2c_release_wait(scl_pin);
+    _i2c_release_wait(_scl_pin);
     
     SDA_SET(1);
     if(!SDA_GET()){
@@ -87,7 +88,7 @@ static void _i2c_bit_write(uint8_t data)
 {
     SDA_SET(data);
     
-    _i2c_release_wait(scl_pin);
+    _i2c_release_wait(_scl_pin);
     
     SCL_LOW();
     SDA_SET(0);
@@ -99,7 +100,7 @@ static int _i2c_bit_read(void)
 
     SDA_SET(1);
     
-    _i2c_release_wait(scl_pin);
+    _i2c_release_wait(_scl_pin);
     
     res = SDA_GET();
     
@@ -153,6 +154,8 @@ int  i2c_scl_request(unsigned long scl_pin)
     }
     gpio_direction_input(scl_pin);
 
+    _scl_pin = scl_pin;
+
     return 0;
 }
 
@@ -162,6 +165,8 @@ int i2c_sda_request(unsigned long sda_pin)
         return -ENOSYS;
     }
     gpio_direction_input(sda_pin);
+
+    _sda_pin = sda_pin;
 
     return 0;
 }
@@ -196,11 +201,14 @@ int i2c_clock_rate_set(unsigned long clk_rate)
 
 int i2c_scl_pin_set(unsigned long new_scl_pin)
 {
-    if((scl_pin != new_scl_pin) && (0 != new_scl_pin)){
-        gpio_free(scl_pin);
+    if((_scl_pin != new_scl_pin) && (0 != new_scl_pin)){
+        gpio_free(_scl_pin);
 
-        scl_pin = new_scl_pin;
-        return i2c_scl_request(scl_pin);
+        if(i2c_scl_request(new_scl_pin)){
+            return -ENOSYS;
+        }
+
+        _scl_pin = new_scl_pin;
     }
 
     return -1;
@@ -208,11 +216,14 @@ int i2c_scl_pin_set(unsigned long new_scl_pin)
 
 int i2c_sda_pin_set(unsigned long new_sda_pin)
 {
-    if((sda_pin != new_sda_pin) && (0 != new_sda_pin)){
-        gpio_free(sda_pin);
+    if((_sda_pin != new_sda_pin) && (0 != new_sda_pin)){
+        gpio_free(_sda_pin);
 
-        sda_pin = new_sda_pin;
-        return i2c_sda_request(sda_pin);
+        if(i2c_scl_request(new_sda_pin)){
+            return -ENOSYS;
+        }
+
+        _sda_pin = new_sda_pin;
     }
 
     return -1;

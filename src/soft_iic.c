@@ -39,8 +39,8 @@ uint8_t reg_addr; // device iic register
 size_t len;     // size of the data will be transfered
 void* buf = NULL; // buffer
 
-extern unsigned scl_pin;
-extern unsigned sda_pin;
+unsigned scl_pin;
+unsigned sda_pin;
 
 module_param(scl_pin, uint, S_IRUGO);
 module_param(sda_pin, uint, S_IRUGO);
