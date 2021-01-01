@@ -1,5 +1,5 @@
-#ifndef LIB_SOFT_IIC_H
-#define LIB_SOFT_IIC_H
+#ifndef _LIB_SOFT_IIC_H_
+#define _LIB_SOFT_IIC_H_
 
 #include <linux/types.h>
 #include <linux/gpio.h>
@@ -17,10 +17,9 @@ int i2c_scl_request(unsigned long scl_pin);
 
 int i2c_sda_request(unsigned long sda_pin);
 
-#define i2c_scl_free() gpio_direction_input(scl_pin); \
-                       gpio_free(scl_pin)
-#define i2c_sda_free() gpio_direction_input(sda_pin); \
-                       gpio_free(sda_pin)
+void i2c_scl_free(void);
+
+void i2c_sda_free(void);
 
 int i2c_clock_rate_set(unsigned long clk_rate);
 

@@ -159,6 +159,12 @@ int  i2c_scl_request(unsigned long scl_pin)
     return 0;
 }
 
+void i2c_scl_free()
+{
+    gpio_direction_input(_scl_pin);
+    gpio_free(_scl_pin);
+}
+
 int i2c_sda_request(unsigned long sda_pin)
 {
     if(-ENOSYS == gpio_request(sda_pin, NULL)){
@@ -169,6 +175,12 @@ int i2c_sda_request(unsigned long sda_pin)
     _sda_pin = sda_pin;
 
     return 0;
+}
+
+void i2c_sda_free()
+{
+    gpio_direction_input(_sda_pin);
+    gpio_free(_sda_pin);
 }
 
 int i2c_clock_rate_set(unsigned long clk_rate)
