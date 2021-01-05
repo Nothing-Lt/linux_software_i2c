@@ -167,31 +167,27 @@ static int device_release(struct inode* node, struct file* file)
 
 long device_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
+    int ret = -ENOSYS;
+
     switch(cmd)
     {
         case IOCTL_CMD_TAKE:
-            if(mod_ctrl.occupied_flag && (mod_ctrl.pid != current->pid)){
-                return -ENOSYS;
-            }
-            else if(mod_ctrl.occupied_flag){
-                break;
-            }
-            else{
+            spin_lock_irq(&wire_lock);
+            if(!mod_ctrl.occupied_flag){
                 mod_ctrl.occupied_flag = 1;
                 mod_ctrl.pid = current->pid;
+                ret = 0;
             }
+            spin_unlock_irq(&wire_lock);
         break;
 
         case IOCTL_CMD_RELEASE:
-            if(!mod_ctrl.occupied_flag){
-                return -ENOSYS;
-            }
-            else if(mod_ctrl.pid != current->pid){
-                return -ENOSYS;
-            }
-            else{
+            spin_lock_irq(&wire_lock);
+            if(mod_ctrl.occupied_flag && (mod_ctrl.pid == current->pid)){
                 mod_ctrl.occupied_flag = 0;
+                ret = 0;
             }
+            spin_unlock_irq(&wire_lock);
         break;
 
         // case IOCTL_CMD_SCL_PIN_SET:
@@ -210,7 +206,7 @@ long device_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
             return EPERM;
     }
 
-    return 0;
+    return ret;
 }
 
 
