@@ -1,0 +1,19 @@
+/dts-v1/;
+/plugin/;
+
+/{
+    compatible = "ti,beaglebone", "ti,beaglebone-black";
+    part-number = "BBB-I2C2"; // you can choose any name here but it should be memorable
+    version = "00A0";
+
+    fragment@0{
+        target-path = "/";
+        __overlay__{
+            soft_iic_bus{
+                compatible = "soft_iic_bus";
+                scl_pin = <66>;
+                sda_pin = <69>;
+            };
+        };
+    };
+};
