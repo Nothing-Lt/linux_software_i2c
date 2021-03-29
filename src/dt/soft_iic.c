@@ -189,8 +189,6 @@ static void __exit soft_iic_bus_driver_exit(void)
 {
     printk(KERN_INFO "[sw_iic]: stopping...\n");
 
-    i2c_scl_free();
-    i2c_sda_free();
     platform_driver_unregister(&soft_iic_bus_drv);
     vfree(buf);
     device_destroy(cl, MKDEV(major_num,0));
