@@ -129,6 +129,8 @@ static int soft_iic_bus_driver_remove(struct platform_device* dev)
     i2c_sda_free();
     i2c_scl_free();
 
+    device_destroy(cl, MKDEV(major_num,0));
+
     return 0;
 }
 
@@ -178,11 +180,8 @@ static void __exit soft_iic_bus_driver_exit(void)
 {
     printk(KERN_INFO "[sw_iic]: stopping...\n");
 
-    i2c_scl_free();
-    i2c_sda_free();
     platform_driver_unregister(&soft_iic_bus_drv);
     vfree(buf);
-    device_destroy(cl, MKDEV(major_num,0));
     class_unregister(cl);
     class_destroy(cl);
     unregister_chrdev(major_num, DEVICE_NAME);
