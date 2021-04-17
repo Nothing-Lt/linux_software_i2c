@@ -39,8 +39,8 @@ uint8_t reg_addr; // device iic register
 size_t len;     // size of the data will be transfered
 void* buf = NULL; // buffer
 
-unsigned scl_pin;
-unsigned sda_pin;
+extern unsigned _scl_pin;
+extern unsigned _sda_pin;
 
 // Determine a lock for the spinlock,
 // It is needed for prenventing the preemption when 
@@ -90,21 +90,21 @@ static int soft_iic_bus_driver_probe(struct platform_device* pdev)
     printk(KERN_INFO "[soft_iic_drv] : probe starting\n");
 
     //Gettng the scl pin
-    if(of_property_read_u32(np, "scl_pin", &scl_pin)){
+    if(of_property_read_u32(np, "scl_pin", &_scl_pin)){
         goto i2c_scl_failed_l;
     }
 
     // Getting the sda pin
-    if(of_property_read_u32(np, "sda_pin", &sda_pin)){
+    if(of_property_read_u32(np, "sda_pin", &_sda_pin)){
         goto i2c_scl_failed_l;
     }
 
     // Initialize the soft iic bus
-    if(0 != i2c_scl_request(scl_pin)){
+    if(0 != i2c_scl_request(_scl_pin)){
         goto i2c_scl_failed_l;
     }
 
-    if(0 != i2c_sda_request(sda_pin)){
+    if(0 != i2c_sda_request(_sda_pin)){
         goto i2c_sda_failed_l;
     }
 
@@ -201,7 +201,7 @@ static void __exit soft_iic_bus_driver_exit(void)
 
 static int soft_iic_bus_open(struct inode* inode, struct file* file)
 {
-    printk(KERN_INFO " %d device openning, scl %u sda %u\n", current->pid, scl_pin, sda_pin);
+    printk(KERN_INFO " %d device openning, scl %u sda %u\n", current->pid, _scl_pin, _sda_pin);
 
     return 0;
 }
@@ -240,17 +240,7 @@ long soft_iic_bus_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
                 ret = 0;
             }
             spin_unlock_irq(&wire_lock);
-        break;
-
-        // case IOCTL_CMD_SCL_PIN_SET:
-        //     i2c_scl_pin_set(arg);
-        //     i2c_reset();
-        // break;
-        // case IOCTL_CMD_SDA_PIN_SET:
-        //     i2c_sda_pin_set(arg);
-        //     i2c_reset();
-        // break;
-        
+        break;        
         case IOCTL_CMD_CLK_FRQ_SET:
             return i2c_clock_rate_set(arg);
         break;

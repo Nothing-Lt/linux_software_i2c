@@ -39,11 +39,11 @@ uint8_t reg_addr; // device iic register
 size_t len;     // size of the data will be transfered
 void* buf = NULL; // buffer
 
-unsigned scl_pin;
-unsigned sda_pin;
+extern unsigned _scl_pin;
+extern unsigned _sda_pin;
 
-module_param(scl_pin, uint, S_IRUGO);
-module_param(sda_pin, uint, S_IRUGO);
+module_param(_scl_pin, uint, S_IRUGO);
+module_param(_sda_pin, uint, S_IRUGO);
 
 // Determine a lock for the spinlock,
 // It is needed for prenventing the preemption when 
@@ -100,11 +100,11 @@ static int __init device_init(void)
         goto device_destroy_l;
     }
 
-    if(0 != i2c_scl_request(scl_pin)){
+    if(0 != i2c_scl_request(_scl_pin)){
         goto buf_destroy_l;
     }
 
-    if(0 != i2c_sda_request(sda_pin)){
+    if(0 != i2c_sda_request(_sda_pin)){
         goto scl_free_l;
     }
 
@@ -149,7 +149,7 @@ static void __exit device_exit(void)
 
 static int device_open(struct inode* inode, struct file* file)
 {
-    printk(KERN_INFO " %d device openning, scl %u sda %u\n", current->pid, scl_pin, sda_pin);
+    printk(KERN_INFO " %d device openning, scl %u sda %u\n", current->pid, _scl_pin, _sda_pin);
 
     return 0;
 }
@@ -189,16 +189,6 @@ long device_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
             }
             spin_unlock_irq(&wire_lock);
         break;
-
-        // case IOCTL_CMD_SCL_PIN_SET:
-        //     i2c_scl_pin_set(arg);
-        //     i2c_reset();
-        // break;
-        // case IOCTL_CMD_SDA_PIN_SET:
-        //     i2c_sda_pin_set(arg);
-        //     i2c_reset();
-        // break;
-        
         case IOCTL_CMD_CLK_FRQ_SET:
             return i2c_clock_rate_set(arg);
         break;

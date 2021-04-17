@@ -39,8 +39,8 @@ uint8_t reg_addr; // device iic register
 size_t len;     // size of the data will be transfered
 void* buf = NULL; // buffer
 
-unsigned scl_pin;
-unsigned sda_pin;
+extern unsigned _scl_pin;
+extern unsigned _sda_pin;
 
 // Determine a lock for the spinlock,
 // It is needed for prenventing the preemption when 
@@ -82,18 +82,18 @@ static int soft_iic_bus_driver_probe(struct platform_device* pdev)
     
     //Gettng the scl pin
     res = platform_get_resource_byname(pdev, IORESOURCE_IRQ, "scl");
-    scl_pin = (unsigned)(res->start);
+    _scl_pin = (unsigned)(res->start);
 
     // Getting the sda pin
     res = platform_get_resource_byname(pdev, IORESOURCE_IRQ, "sda");
-    sda_pin = (unsigned)(res->start);
+    _sda_pin = (unsigned)(res->start);
 
     // Initialize the soft iic bus
-    if(0 != i2c_scl_request(scl_pin)){
+    if(0 != i2c_scl_request(_scl_pin)){
         goto i2c_scl_failed_l;
     }
 
-    if(0 != i2c_sda_request(sda_pin)){
+    if(0 != i2c_sda_request(_sda_pin)){
         goto i2c_sda_failed_l;
     }
 
@@ -136,7 +136,7 @@ static int soft_iic_bus_driver_remove(struct platform_device* dev)
 
 static int __init soft_iic_bus_driver_init(void)
 {
-    printk(KERN_INFO "[sw_iic] softiic_drv: staring...\n");
+    printk(KERN_INFO "[sw_iic] softiic_drv: starting...\n");
 
     // Find a place in kernel char-device-array for keeping and allocate major-id for this driver.
     // major-id is the index for this driver in char-device-array.
@@ -190,7 +190,7 @@ static void __exit soft_iic_bus_driver_exit(void)
 
 static int soft_iic_bus_open(struct inode* inode, struct file* file)
 {
-    printk(KERN_INFO " %d device openning, scl %u sda %u\n", current->pid, scl_pin, sda_pin);
+    printk(KERN_INFO " %d device openning, scl %u sda %u\n", current->pid, _scl_pin, _sda_pin);
 
     return 0;
 }

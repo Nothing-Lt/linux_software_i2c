@@ -12,8 +12,8 @@ extern spinlock_t wire_lock;
 unsigned long t_delay = _I2C_100KHZ;
 void (*_i2c_delay)(unsigned long secs) = ndelay;
 
-static unsigned _scl_pin = DFLT_SCL;
-static unsigned _sda_pin = DFLT_SDA;
+unsigned _scl_pin = DFLT_SCL;
+unsigned _sda_pin = DFLT_SDA;
 
 #define SCL_HIGH() gpio_direction_input(_scl_pin); \
                    _i2c_delay(t_delay)
@@ -209,36 +209,6 @@ int i2c_clock_rate_set(unsigned long clk_rate)
     }
 
     return 0;
-}
-
-int i2c_scl_pin_set(unsigned long new_scl_pin)
-{
-    if((_scl_pin != new_scl_pin) && (0 != new_scl_pin)){
-        gpio_free(_scl_pin);
-
-        if(i2c_scl_request(new_scl_pin)){
-            return -ENOSYS;
-        }
-
-        _scl_pin = new_scl_pin;
-    }
-
-    return -1;
-}
-
-int i2c_sda_pin_set(unsigned long new_sda_pin)
-{
-    if((_sda_pin != new_sda_pin) && (0 != new_sda_pin)){
-        gpio_free(_sda_pin);
-
-        if(i2c_scl_request(new_sda_pin)){
-            return -ENOSYS;
-        }
-
-        _sda_pin = new_sda_pin;
-    }
-
-    return -1;
 }
 
 void i2c_reset(void)
