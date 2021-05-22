@@ -1,5 +1,5 @@
-#ifndef _LIB_SOFT_IIC_H_
-#define _LIB_SOFT_IIC_H_
+#ifndef _LIB_SOFT_I2C_H_
+#define _LIB_SOFT_I2C_H_
 
 #include <linux/types.h>
 #include <linux/gpio.h>

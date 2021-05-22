@@ -1,5 +1,5 @@
-#ifndef SW_IIC_H
-#define SW_IIC_H
+#ifndef SW_I2C_H
+#define SW_I2C_H
 
 #define IOCTL_CMD_TAKE    0x10
 #define IOCTL_CMD_RELEASE 0x20

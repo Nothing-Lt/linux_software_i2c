@@ -1,5 +1,5 @@
-obj-m := sw_iic.o
-sw_iic-objs := soft_iic.o lib_soft_iic.o
+obj-m := sw_i2c.o
+sw_i2c-objs := soft_i2c.o lib_soft_i2c.o
 KERNEL_MAKEFILE_PLACE=~/ti-linux-kernel-dev/KERNEL
 
 # KERNEL_MAKEFILE_PLACE is the place for makefile after compiling the kernel,this can be 

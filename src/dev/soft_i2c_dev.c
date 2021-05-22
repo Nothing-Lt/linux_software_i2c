@@ -28,8 +28,8 @@ static struct resource pin_resources[] = {
     }
 };
 
-struct platform_device soft_iic_bus_dev = {
-    .name = "soft_iic_bus",
+struct platform_device soft_i2c_bus_dev = {
+    .name = "soft_i2c_bus",
     .num_resources = ARRAY_SIZE(pin_resources),
     .resource = pin_resources
 };
@@ -40,14 +40,14 @@ static int __init device_init(void)
 
     printk(KERN_INFO "[sw_iic] softiic_dev: staring...\n");
 
-    err = platform_device_register(&soft_iic_bus_dev);
+    err = platform_device_register(&soft_i2c_bus_dev);
 
     return err;
 }
 
 static void __exit device_exit(void)
 {
-    platform_device_unregister(&soft_iic_bus_dev);
+    platform_device_unregister(&soft_i2c_bus_dev);
 }
 
 module_init(device_init);

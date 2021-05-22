@@ -10,7 +10,7 @@ int main(int argc, char** argv)
     int fd = -1;
     off_t off;
 
-    fd = open("/dev/soft_iic",O_RDWR);
+    fd = open("/dev/soft_i2c",O_RDWR);
     if(-1 == fd){
         printf("failed\r\n");
               return -1;

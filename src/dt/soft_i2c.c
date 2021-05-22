@@ -14,13 +14,13 @@
 #include <linux/delay.h>
 #include <linux/platform_device.h>
 
-#include "sw_iic.h"
-#include "lib_soft_iic.h"
+#include "sw_i2c.h"
+#include "lib_soft_i2c.h"
 
 MODULE_LICENSE("GPL");
 
-#define DEVICE_NAME "soft_iic"
-#define CLASS_NAME "softiiccla"
+#define DEVICE_NAME "soft_i2c"
+#define CLASS_NAME "softi2ccla"
 
 struct mod_ctrl_s
 {
@@ -34,8 +34,8 @@ static struct class* cl;
 static struct device* dev;
 
 struct mod_ctrl_s mod_ctrl;
-uint8_t dev_addr; // device iic address
-uint8_t reg_addr; // device iic register
+uint8_t dev_addr; // device i2c address
+uint8_t reg_addr; // device i2c register
 size_t len;     // size of the data will be transfered
 void* buf = NULL; // buffer
 
@@ -47,47 +47,47 @@ extern unsigned _sda_pin;
 // generating the scl and sda signal.
 spinlock_t wire_lock;
 
-static int __init soft_iic_bus_driver_init(void);
-static void __exit soft_iic_bus_driver_exit(void);
-static int soft_iic_bus_driver_probe(struct platform_device* dev);
-static int soft_iic_bus_driver_remove(struct platform_device* dev);
+static int __init soft_i2c_bus_driver_init(void);
+static void __exit soft_i2c_bus_driver_exit(void);
+static int soft_i2c_bus_driver_probe(struct platform_device* dev);
+static int soft_i2c_bus_driver_remove(struct platform_device* dev);
 
-static int soft_iic_bus_open(struct inode* node, struct file* file);
-static int soft_iic_bus_release(struct inode*, struct file* );
-static loff_t soft_iic_bus_lseek(struct file*, loff_t, int);
-static ssize_t soft_iic_bus_read(struct file*, char* ,size_t,loff_t*);
-static ssize_t soft_iic_bus_write(struct file*, const char*, size_t, loff_t*);
-long soft_iic_bus_ioctl (struct file *, unsigned int, unsigned long);
+static int soft_i2c_bus_open(struct inode* node, struct file* file);
+static int soft_i2c_bus_release(struct inode*, struct file* );
+static loff_t soft_i2c_bus_lseek(struct file*, loff_t, int);
+static ssize_t soft_i2c_bus_read(struct file*, char* ,size_t,loff_t*);
+static ssize_t soft_i2c_bus_write(struct file*, const char*, size_t, loff_t*);
+long soft_i2c_bus_ioctl (struct file *, unsigned int, unsigned long);
 
 static struct file_operations file_ops = {
-    .llseek  = soft_iic_bus_lseek, 
-    .read    = soft_iic_bus_read,
-    .write   = soft_iic_bus_write,
-    .unlocked_ioctl = soft_iic_bus_ioctl,
-    .open    = soft_iic_bus_open,
-    .release = soft_iic_bus_release
+    .llseek  = soft_i2c_bus_lseek, 
+    .read    = soft_i2c_bus_read,
+    .write   = soft_i2c_bus_write,
+    .unlocked_ioctl = soft_i2c_bus_ioctl,
+    .open    = soft_i2c_bus_open,
+    .release = soft_i2c_bus_release
 };
 
-static const struct of_device_id soft_iic_bus_match[] = {
-    {.compatible = "soft_iic_bus"},
+static const struct of_device_id soft_i2c_bus_match[] = {
+    {.compatible = "soft_i2c_bus"},
     {}
 };
-MODULE_DEVICE_TABLE(of,soft_iic_bus_match);
+MODULE_DEVICE_TABLE(of,soft_i2c_bus_match);
 
-struct platform_driver soft_iic_bus_drv = {
-    .probe = soft_iic_bus_driver_probe,
-    .remove = soft_iic_bus_driver_remove,
+struct platform_driver soft_i2c_bus_drv = {
+    .probe = soft_i2c_bus_driver_probe,
+    .remove = soft_i2c_bus_driver_remove,
     .driver = {
-        .name = "soft_iic_bus",
-        .of_match_table = soft_iic_bus_match,
+        .name = "soft_i2c_bus",
+        .of_match_table = soft_i2c_bus_match,
     }
 };
 
-static int soft_iic_bus_driver_probe(struct platform_device* pdev)
+static int soft_i2c_bus_driver_probe(struct platform_device* pdev)
 {
     struct device_node* np = pdev->dev.of_node;
 
-    printk(KERN_INFO "[soft_iic_drv] : probe starting\n");
+    printk(KERN_INFO "[soft_i2c_drv] : probe starting\n");
 
     //Gettng the scl pin
     if(of_property_read_u32(np, "scl_pin", &_scl_pin)){
@@ -99,7 +99,7 @@ static int soft_iic_bus_driver_probe(struct platform_device* pdev)
         goto i2c_scl_failed_l;
     }
 
-    // Initialize the soft iic bus
+    // Initialize the soft i2c bus
     if(0 != i2c_scl_request(_scl_pin)){
         goto i2c_scl_failed_l;
     }
@@ -119,11 +119,11 @@ static int soft_iic_bus_driver_probe(struct platform_device* pdev)
     // so we will have /dev/hello
     dev = device_create(cl,NULL,MKDEV(major_num,0),NULL,DEVICE_NAME);
     if(IS_ERR(dev)){
-        printk(KERN_ALERT "[sw_iic] failed device create\n");
+        printk(KERN_ALERT "[sw_i2c] failed device create\n");
         goto device_create_failed_l;
     }
 
-    printk(KERN_INFO "[sw_iic_drv] probe starting done\n");
+    printk(KERN_INFO "[sw_i2c_drv] probe starting done\n");
 
     return 0;
 
@@ -135,7 +135,7 @@ i2c_scl_failed_l:
     return -1;
 }
 
-static int soft_iic_bus_driver_remove(struct platform_device* dev)
+static int soft_i2c_bus_driver_remove(struct platform_device* dev)
 {
     i2c_sda_free();
     i2c_scl_free();
@@ -145,23 +145,23 @@ static int soft_iic_bus_driver_remove(struct platform_device* dev)
     return 0;
 }
 
-static int __init soft_iic_bus_driver_init(void)
+static int __init soft_i2c_bus_driver_init(void)
 {
-    printk(KERN_INFO "[sw_iic] softiic_drv: staring...\n");
+    printk(KERN_INFO "[sw_i2c] softi2c_drv: staring...\n");
 
     // Find a place in kernel char-device-array for keeping and allocate major-id for this driver.
     // major-id is the index for this driver in char-device-array.
     // After this step, we can find this device from /proc/devices
     major_num = register_chrdev(0,DEVICE_NAME,&file_ops);
     if(0 > major_num){
-    printk(KERN_ALERT "[sw_iic] failed alloc\n");
+    printk(KERN_ALERT "[sw_i2c] failed alloc\n");
         goto finish_l;
     }
 
     // Create a class under /sys/class, so that later we can call device_create() to create a node under /dev/
     cl = class_create(THIS_MODULE,CLASS_NAME);
     if(IS_ERR(cl)){
-        printk(KERN_ALERT "[sw_iic] failed create class\n");
+        printk(KERN_ALERT "[sw_i2c] failed create class\n");
         goto unregister_chrdev_region_l;
     } 
     
@@ -169,11 +169,11 @@ static int __init soft_iic_bus_driver_init(void)
         goto class_destroy_l;
     }
 
-    if(platform_driver_register(&soft_iic_bus_drv)){
+    if(platform_driver_register(&soft_i2c_bus_drv)){
         goto platform_driver_register_failed_l;
     }
 
-    printk(KERN_INFO "[sw_iic_drv] staring done.\n");
+    printk(KERN_INFO "[sw_i2c_drv] staring done.\n");
     
     return 0;
 
@@ -187,26 +187,26 @@ finish_l:
     return -1;
 }
 
-static void __exit soft_iic_bus_driver_exit(void)
+static void __exit soft_i2c_bus_driver_exit(void)
 {
-    printk(KERN_INFO "[sw_iic]: stopping...\n");
+    printk(KERN_INFO "[sw_i2c]: stopping...\n");
 
-    platform_driver_unregister(&soft_iic_bus_drv);
+    platform_driver_unregister(&soft_i2c_bus_drv);
     vfree(buf);
     class_unregister(cl);
     class_destroy(cl);
     unregister_chrdev(major_num, DEVICE_NAME);
-    printk(KERN_INFO "[sw_iic]: stopping done.\n");
+    printk(KERN_INFO "[sw_i2c]: stopping done.\n");
 }
 
-static int soft_iic_bus_open(struct inode* inode, struct file* file)
+static int soft_i2c_bus_open(struct inode* inode, struct file* file)
 {
     printk(KERN_INFO " %d device openning, scl %u sda %u\n", current->pid, _scl_pin, _sda_pin);
 
     return 0;
 }
 
-static int soft_iic_bus_release(struct inode* node, struct file* file)
+static int soft_i2c_bus_release(struct inode* node, struct file* file)
 {
     printk(KERN_INFO "%d device released\n", current->pid);
 
@@ -217,7 +217,7 @@ static int soft_iic_bus_release(struct inode* node, struct file* file)
     return 0;
 }
 
-long soft_iic_bus_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+long soft_i2c_bus_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
     int ret = -ENOSYS;
 
@@ -252,7 +252,7 @@ long soft_iic_bus_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 }
 
 
-static loff_t soft_iic_bus_lseek(struct file* file, loff_t offset, int orig)
+static loff_t soft_i2c_bus_lseek(struct file* file, loff_t offset, int orig)
 {
     if(mod_ctrl.occupied_flag && (mod_ctrl.pid != current->pid)){
         return -1;
@@ -261,7 +261,7 @@ static loff_t soft_iic_bus_lseek(struct file* file, loff_t offset, int orig)
     dev_addr = (uint8_t)((offset >> 16) & 0xFF);
     reg_addr = (uint8_t)(offset & 0xFF);
 
-    printk(KERN_INFO "[sw_iic] %d lseek %d %llx %d %d\n",current->pid, sizeof(loff_t), offset, dev_addr, reg_addr);
+    printk(KERN_INFO "[sw_i2c] %d lseek %d %llx %d %d\n",current->pid, sizeof(loff_t), offset, dev_addr, reg_addr);
 
     return 0;
 }
@@ -269,7 +269,7 @@ static loff_t soft_iic_bus_lseek(struct file* file, loff_t offset, int orig)
 /**
  * size => len
  */
-static ssize_t soft_iic_bus_read(struct file* file, char* str,size_t size,loff_t* offset)
+static ssize_t soft_i2c_bus_read(struct file* file, char* str,size_t size,loff_t* offset)
 { 
     len = size;
     ((uint8_t*)buf)[0] = 0;
@@ -279,13 +279,13 @@ static ssize_t soft_iic_bus_read(struct file* file, char* str,size_t size,loff_t
     }
 
     if(soft_i2c_read(dev_addr << 1,reg_addr,buf,len)){
-        printk(KERN_INFO "[sw_iic] no ack!!\n");
+        printk(KERN_INFO "[sw_i2c] no ack!!\n");
         return -1;
     }
 
 #ifdef DEBUG_MOD
     int i;
-    printk(KERN_INFO "[sw_iic] read : ");
+    printk(KERN_INFO "[sw_i2c] read : ");
     for (i = 0; i < len; i++)
     {
         printk(KERN_INFO "%d,",((char*)buf)[i]);
@@ -301,7 +301,7 @@ static ssize_t soft_iic_bus_read(struct file* file, char* str,size_t size,loff_t
 /**
  *
  */
-static ssize_t soft_iic_bus_write(struct file* file, const char* str, size_t size, loff_t* offset)
+static ssize_t soft_i2c_bus_write(struct file* file, const char* str, size_t size, loff_t* offset)
 {    
     len = size;
     
@@ -311,7 +311,7 @@ static ssize_t soft_iic_bus_write(struct file* file, const char* str, size_t siz
     
     copy_from_user(buf,str,size);
 
-    printk(KERN_INFO "[sw_iic] %d Going to write addr %d reg %d\n",current->pid,dev_addr, reg_addr);
+    printk(KERN_INFO "[sw_i2c] %d Going to write addr %d reg %d\n",current->pid,dev_addr, reg_addr);
 
 #ifdef DEBUG_MOD
     int i;
@@ -332,5 +332,5 @@ static ssize_t soft_iic_bus_write(struct file* file, const char* str, size_t siz
     return 0;
 }
 
-module_init(soft_iic_bus_driver_init);
-module_exit(soft_iic_bus_driver_exit);
+module_init(soft_i2c_bus_driver_init);
+module_exit(soft_i2c_bus_driver_exit);

@@ -1,4 +1,4 @@
-#include "lib_soft_iic.h"
+#include "lib_soft_i2c.h"
 
 #include <linux/gpio.h>
 #include <linux/delay.h>
@@ -56,14 +56,13 @@ static void _i2c_release_wait(unsigned pin)
     _i2c_delay(t_delay);
 }
 
-
 static int _i2c_start(void)
 {
     SDA_SET(1);
+
     if(!SDA_GET()){
         i2c_reset();
     }
-
     _i2c_release_wait(_scl_pin);
 
     SDA_SET(0);

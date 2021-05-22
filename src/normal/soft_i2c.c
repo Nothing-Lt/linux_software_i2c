@@ -13,13 +13,13 @@
 #include <linux/spinlock.h>
 #include <linux/delay.h>
 
-#include "sw_iic.h"
-#include "lib_soft_iic.h"
+#include "sw_i2c.h"
+#include "lib_soft_i2c.h"
 
 MODULE_LICENSE("GPL");
 
-#define DEVICE_NAME "soft_iic"
-#define CLASS_NAME "softiiccla"
+#define DEVICE_NAME "soft_i2c"
+#define CLASS_NAME "softi2ccla"
 
 struct mod_ctrl_s
 {
@@ -34,8 +34,8 @@ static struct class* cl;
 static struct device* dev;
 
 struct mod_ctrl_s mod_ctrl;
-uint8_t dev_addr; // device iic address
-uint8_t reg_addr; // device iic register
+uint8_t dev_addr; // device i2c address
+uint8_t reg_addr; // device i2c register
 size_t len;     // size of the data will be transfered
 void* buf = NULL; // buffer
 
@@ -70,21 +70,21 @@ static struct file_operations file_ops = {
 
 static int __init device_init(void)
 {
-    printk(KERN_INFO "[sw_iic] softiic: staring...\n");
+    printk(KERN_INFO "[sw_i2c] softi2c: staring...\n");
 
     // Find a place in kernel char-device-array for keeping and allocate major-id for this driver.
     // major-id is the index for this driver in char-device-array.
     // After this step, we can find this device from /proc/devices
     major_num = register_chrdev(0,DEVICE_NAME,&file_ops);
     if(0 > major_num){
-    printk(KERN_ALERT "[sw_iic] failed alloc\n");
+    printk(KERN_ALERT "[sw_i2c] failed alloc\n");
         goto finish_l;
     }
 
     // Create a class under /sys/class, so that later we can call device_create() to create a node under /dev/
     cl = class_create(THIS_MODULE,CLASS_NAME);
     if(IS_ERR(cl)){
-        printk(KERN_ALERT "[sw_iic] failed create class\n");
+        printk(KERN_ALERT "[sw_i2c] failed create class\n");
         goto unregister_chrdev_region_l;
     } 
     
@@ -92,7 +92,7 @@ static int __init device_init(void)
     // so we will have /dev/hello
     dev = device_create(cl,NULL,MKDEV(major_num,0),NULL,DEVICE_NAME);
     if(IS_ERR(dev)){
-        printk(KERN_ALERT "[sw_iic] failed device create\n");
+        printk(KERN_ALERT "[sw_i2c] failed device create\n");
         goto class_destroy_l;
     }
 
@@ -115,7 +115,7 @@ static int __init device_init(void)
 
     spin_lock_init(&wire_lock);
 
-    printk(KERN_INFO "[sw_iic] staring done.\n");
+    printk(KERN_INFO "[sw_i2c] staring done.\n");
     
     return 0;
 
@@ -135,7 +135,7 @@ finish_l:
 
 static void __exit device_exit(void)
 {
-    printk(KERN_INFO "[sw_iic]: stopping...\n");
+    printk(KERN_INFO "[sw_i2c]: stopping...\n");
 
     i2c_scl_free();
     i2c_sda_free();
@@ -144,7 +144,7 @@ static void __exit device_exit(void)
     class_unregister(cl);
     class_destroy(cl);
     unregister_chrdev(major_num, DEVICE_NAME);
-    printk(KERN_INFO "[sw_iic]: stopping done.\n");
+    printk(KERN_INFO "[sw_i2c]: stopping done.\n");
 }
 
 static int device_open(struct inode* inode, struct file* file)
@@ -209,7 +209,7 @@ static loff_t device_lseek(struct file* file, loff_t offset, int orig)
     dev_addr = (uint8_t)((offset >> 16) & 0xFF);
     reg_addr = (uint8_t)(offset & 0xFF);
 
-    printk(KERN_INFO "[sw_iic] %d lseek %d %llx %d %d\n",current->pid, sizeof(loff_t), offset, dev_addr, reg_addr);
+    printk(KERN_INFO "[sw_i2c] %d lseek %d %llx %d %d\n",current->pid, sizeof(loff_t), offset, dev_addr, reg_addr);
 
     return 0;
 }
@@ -227,13 +227,13 @@ static ssize_t device_read(struct file* file, char* str,size_t size,loff_t* offs
     }
 
     if(soft_i2c_read(dev_addr << 1,reg_addr,buf,len)){
-        printk(KERN_INFO "[sw_iic] no ack!!\n");
+        printk(KERN_INFO "[sw_i2c] no ack!!\n");
         return -1;
     }
 
 #ifdef DEBUG_MOD
     int i;
-    printk(KERN_INFO "[sw_iic] read : ");
+    printk(KERN_INFO "[sw_i2c] read : ");
     for (i = 0; i < len; i++)
     {
         printk(KERN_INFO "%d,",((char*)buf)[i]);
@@ -259,7 +259,7 @@ static ssize_t device_write(struct file* file, const char* str, size_t size, lof
     
     copy_from_user(buf,str,size);
 
-    printk(KERN_INFO "[sw_iic] %d Going to write addr %d reg %d\n",current->pid,dev_addr, reg_addr);
+    printk(KERN_INFO "[sw_i2c] %d Going to write addr %d reg %d\n",current->pid,dev_addr, reg_addr);
 
 #ifdef DEBUG_MOD
     int i;

@@ -9,8 +9,8 @@
     fragment@0{
         target-path = "/";
         __overlay__{
-            soft_iic_bus{
-                compatible = "soft_iic_bus";
+            soft_i2c_bus{
+                compatible = "soft_i2c_bus";
                 scl_pin = <66>;
                 sda_pin = <69>;
             };

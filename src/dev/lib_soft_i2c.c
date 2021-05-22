@@ -1,4 +1,4 @@
-#include "lib_soft_iic.h"
+#include "lib_soft_i2c.h"
 
 #include <linux/gpio.h>
 #include <linux/delay.h>
