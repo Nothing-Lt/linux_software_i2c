@@ -294,7 +294,7 @@ static ssize_t soft_i2c_bus_read(struct file* file, char* str,size_t size,loff_t
 
     copy_to_user(str,buf,len);
     
-    return 0;
+    return len;
 }
 
 /**
@@ -328,7 +328,7 @@ static ssize_t soft_i2c_bus_write(struct file* file, const char* str, size_t siz
     
     printk(KERN_INFO "write done\n");
     
-    return 0;
+    return size;
 }
 
 module_init(soft_i2c_bus_driver_init);
